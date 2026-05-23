@@ -207,6 +207,17 @@ class MellowApp {
         this.addSubjectForm = document.getElementById('add-subject-form');
         this.newSubjectName = document.getElementById('new-subject-name');
         this.modalSubjectsList = document.getElementById('modal-subjects-list');
+
+        // Custom Select Elements
+        this.customSubjectWrapper = document.getElementById('custom-subject-wrapper');
+        this.customSubjectTrigger = document.getElementById('custom-subject-trigger');
+        this.customSubjectTriggerText = this.customSubjectTrigger?.querySelector('.custom-select-trigger-text');
+        this.customSubjectOptions = document.getElementById('custom-subject-options');
+
+        this.customSortWrapper = document.getElementById('custom-sort-wrapper');
+        this.customSortTrigger = document.getElementById('custom-sort-trigger');
+        this.customSortTriggerText = this.customSortTrigger?.querySelector('.custom-select-trigger-text');
+        this.customSortOptions = document.getElementById('custom-sort-options');
     }
 
     async init() {
@@ -331,17 +342,37 @@ class MellowApp {
         if (!this.taskSubject) return;
         this.taskSubject.innerHTML = '';
         
+        if (this.customSubjectOptions) {
+            this.customSubjectOptions.innerHTML = '';
+        }
+
+        const currentValue = this.taskSubject.value || 'general';
+        
         this.subjects.forEach(sub => {
             const opt = document.createElement('option');
             opt.value = sub.id;
             opt.textContent = sub.name;
-            if (sub.id === 'general') opt.selected = true;
+            if (sub.id === currentValue) opt.selected = true;
             this.taskSubject.appendChild(opt);
+
+            if (this.customSubjectOptions) {
+                const div = document.createElement('div');
+                div.className = `custom-option${sub.id === currentValue ? ' selected' : ''}`;
+                div.dataset.value = sub.id;
+                div.textContent = sub.name;
+                this.customSubjectOptions.appendChild(div);
+            }
         });
+
+        const currentSub = this.subjects.find(s => s.id === currentValue);
+        if (this.customSubjectTriggerText) {
+            this.customSubjectTriggerText.textContent = currentSub ? currentSub.name : 'ทั่วไป';
+        }
     }
 
     // Setup event listeners
     setupEventListeners() {
+        this.setupCustomSelects();
         this.themeToggleBtn.addEventListener('click', () => this.toggleTheme());
         this.taskForm.addEventListener('submit', (e) => this.handleSubmit(e));
 
@@ -402,6 +433,90 @@ class MellowApp {
                     const subjectId = deleteBtn.dataset.id;
                     this.handleDeleteSubject(subjectId);
                 }
+            });
+        }
+    }
+
+    // Setup Custom Dropdowns
+    setupCustomSelects() {
+        // Toggle Subject Select open/close
+        if (this.customSubjectTrigger) {
+            this.customSubjectTrigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.customSortWrapper?.classList.remove('open');
+                this.customSubjectWrapper?.classList.toggle('open');
+            });
+        }
+
+        // Toggle Sort Select open/close
+        if (this.customSortTrigger) {
+            this.customSortTrigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.customSubjectWrapper?.classList.remove('open');
+                this.customSortWrapper?.classList.toggle('open');
+            });
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', () => {
+            this.customSubjectWrapper?.classList.remove('open');
+            this.customSortWrapper?.classList.remove('open');
+        });
+
+        // Click handler for Sort options
+        if (this.customSortOptions) {
+            this.customSortOptions.addEventListener('click', (e) => {
+                const option = e.target.closest('.custom-option');
+                if (!option) return;
+
+                const val = option.dataset.value;
+                const text = option.textContent;
+
+                // Update trigger text
+                if (this.customSortTriggerText) {
+                    this.customSortTriggerText.textContent = text;
+                }
+
+                // Update selected class
+                this.customSortOptions.querySelectorAll('.custom-option').forEach(opt => {
+                    opt.classList.toggle('selected', opt === option);
+                });
+
+                // Update native select and trigger event
+                if (this.sortSelect) {
+                    this.sortSelect.value = val;
+                    this.sortSelect.dispatchEvent(new Event('change'));
+                }
+
+                this.customSortWrapper?.classList.remove('open');
+            });
+        }
+
+        // Click handler for Subject options
+        if (this.customSubjectOptions) {
+            this.customSubjectOptions.addEventListener('click', (e) => {
+                const option = e.target.closest('.custom-option');
+                if (!option) return;
+
+                const val = option.dataset.value;
+                const text = option.textContent;
+
+                // Update trigger text
+                if (this.customSubjectTriggerText) {
+                    this.customSubjectTriggerText.textContent = text;
+                }
+
+                // Update selected class
+                this.customSubjectOptions.querySelectorAll('.custom-option').forEach(opt => {
+                    opt.classList.toggle('selected', opt === option);
+                });
+
+                // Update native select
+                if (this.taskSubject) {
+                    this.taskSubject.value = val;
+                }
+
+                this.customSubjectWrapper?.classList.remove('open');
             });
         }
     }

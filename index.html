@@ -74,8 +74,17 @@
                             <input type="date" id="task-due-date" required>
                         </div>
                         <div class="input-group">
-                            <label for="task-subject">วิชา / หมวดหมู่</label>
-                            <select id="task-subject" required>
+                            <label>วิชา / หมวดหมู่</label>
+                            <div class="custom-select-wrapper" id="custom-subject-wrapper">
+                                <div class="custom-select-trigger" id="custom-subject-trigger">
+                                    <span class="custom-select-trigger-text">กำลังโหลดวิชา...</span>
+                                    <i class="fa-solid fa-chevron-down custom-select-arrow"></i>
+                                </div>
+                                <div class="custom-options-container" id="custom-subject-options">
+                                    <!-- Dynamic options will be rendered here -->
+                                </div>
+                            </div>
+                            <select id="task-subject" required style="display: none;">
                                 <option value="" disabled selected>กำลังโหลดวิชา...</option>
                             </select>
                         </div>
@@ -102,8 +111,20 @@
                     </button>
                 </div>
                 <div class="sort-wrapper">
-                    <label for="sort-select" class="sort-label"><i class="fa-solid fa-sort"></i> เรียงตาม</label>
-                    <select id="sort-select" class="sort-select">
+                    <label class="sort-label"><i class="fa-solid fa-sort"></i> เรียงตาม</label>
+                    <div class="custom-select-wrapper sort-custom-select" id="custom-sort-wrapper">
+                        <div class="custom-select-trigger" id="custom-sort-trigger">
+                            <span class="custom-select-trigger-text">งานที่เพิ่มล่าสุด</span>
+                            <i class="fa-solid fa-chevron-down custom-select-arrow"></i>
+                        </div>
+                        <div class="custom-options-container" id="custom-sort-options">
+                            <div class="custom-option" data-value="dueDate-asc">วันกำหนดส่ง (ใกล้สุดก่อน)</div>
+                            <div class="custom-option" data-value="dueDate-desc">วันกำหนดส่ง (ไกลสุดก่อน)</div>
+                            <div class="custom-option" data-value="subject-asc">วิชา (ก - ฮ)</div>
+                            <div class="custom-option selected" data-value="created-desc">งานที่เพิ่มล่าสุด</div>
+                        </div>
+                    </div>
+                    <select id="sort-select" class="sort-select" style="display: none;">
                         <option value="dueDate-asc">วันกำหนดส่ง (ใกล้สุดก่อน)</option>
                         <option value="dueDate-desc">วันกำหนดส่ง (ไกลสุดก่อน)</option>
                         <option value="subject-asc">วิชา (ก - ฮ)</option>
