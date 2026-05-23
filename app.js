@@ -478,15 +478,21 @@ class MellowApp {
             this.render();
         });
 
+        // ป้องกันปัญหาการคลิกเบิ้ลของ Label โดยใช้ Change Event ในการดักสถานะเช็คบ็อกซ์แทน Click Event
+        this.taskList.addEventListener('change', (e) => {
+            if (e.target.type === 'checkbox') {
+                const taskItem = e.target.closest('.task-item');
+                if (taskItem) {
+                    const taskId = taskItem.dataset.id;
+                    this.toggleTaskStatus(taskId, e.target.checked);
+                }
+            }
+        });
+
         this.taskList.addEventListener('click', (e) => {
             const taskItem = e.target.closest('.task-item');
             if (!taskItem) return;
             const taskId = taskItem.dataset.id;
-
-            if (e.target.closest('.checkbox-container')) {
-                const checkbox = taskItem.querySelector('input[type="checkbox"]');
-                this.toggleTaskStatus(taskId, checkbox.checked);
-            }
 
             if (e.target.closest('.btn-icon')) {
                 this.deleteTaskWithAnimation(taskItem, taskId);
@@ -817,7 +823,9 @@ class MellowApp {
 
         try {
             const addedTask = await db.add(newTask);
-            this.tasks.push(addedTask);
+            if (!this.tasks.some(t => t.id === addedTask.id)) {
+                this.tasks.push(addedTask);
+            }
             
             this.taskInput.value = '';
             this.taskInput.focus();
@@ -839,6 +847,12 @@ class MellowApp {
     async toggleTaskStatus(id, isCompleted) {
         const task = this.tasks.find(t => t.id === id);
         if (task) {
+            const taskItem = document.querySelector(`.task-item[data-id="${id}"]`);
+            const checkbox = taskItem ? taskItem.querySelector('input[type="checkbox"]') : null;
+            
+            // ล็อก checkbox ชั่วคราวเพื่อกันการกดซ้ำซ้อนระหว่างรอส่งข้อมูลคลาวด์
+            if (checkbox) checkbox.disabled = true;
+
             task.completed = isCompleted;
             
             // เล่นเอฟเฟกต์ Confetti เมื่อเช็คงานสำเร็จ
@@ -853,13 +867,28 @@ class MellowApp {
                 }, 200);
             } catch (err) {
                 console.error("Error updating status:", err);
+                
+                // ย้อนกลับค่าใน UI เพื่อเตือนให้ยูสเซอร์รู้ว่าบันทึกไม่สำเร็จ
+                task.completed = !isCompleted;
+                if (checkbox) {
+                    checkbox.checked = !isCompleted;
+                    checkbox.disabled = false;
+                }
+                
                 const localDb = new LocalStorageTaskRepository();
                 try {
                     await localDb.update(id, { completed: isCompleted });
                 } catch(e) {}
+
+                // โชว์ข้อความเตือนใน footer
+                const statusText = document.getElementById('connection-status');
+                if (statusText) {
+                    statusText.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color: #d9534f;"></i> บันทึกสถานะงานไม่สำเร็จ: ${err.message || err}`;
+                }
+                
                 setTimeout(() => {
                     this.render();
-                }, 200);
+                }, 1000);
             }
         }
     }
