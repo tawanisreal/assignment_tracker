@@ -1,0 +1,22 @@
+{
+  "name": "Mellow Tasks",
+  "short_name": "Mellow",
+  "description": "Modern Minimalist Brown-themed Assignment Tracker",
+  "start_url": "/assignment_tracker/",
+  "display": "standalone",
+  "background_color": "#FAF8F6",
+  "theme_color": "#614033",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}

@@ -12,6 +12,10 @@
     <!-- FontAwesome for minimal icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
+    <!-- PWA Settings -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#614033">
+    <link rel="apple-touch-icon" href="icon-192.png">
 </head>
 <body>
     <div class="app-wrapper">
@@ -24,20 +28,31 @@
                         <p id="app-subtitle">Assignment & Task Organizer</p>
                     </div>
                 </div>
-                <button id="theme-toggle" class="theme-toggle-btn" aria-label="สลับโหมดหน้าจอ">
-                    <i class="fa-solid fa-moon moon-icon"></i>
-                    <i class="fa-solid fa-sun sun-icon"></i>
-                </button>
+                <div class="header-actions">
+                    <button id="manage-subjects-btn" class="header-action-btn" title="จัดการรายวิชา" aria-label="จัดการรายวิชา">
+                        <i class="fa-solid fa-gear"></i>
+                    </button>
+                    <button id="theme-toggle" class="theme-toggle-btn" aria-label="สลับโหมดหน้าจอ">
+                        <i class="fa-solid fa-moon moon-icon"></i>
+                        <i class="fa-solid fa-sun sun-icon"></i>
+                    </button>
+                </div>
             </div>
             
             <!-- Progress Section -->
             <div class="progress-card" id="progress-container">
-                <div class="progress-info">
-                    <span class="progress-title" id="progress-text-summary">กำลังทำได้ดี! เสร็จไปแล้ว 0%</span>
-                    <span class="progress-count" id="progress-text-count">0 จาก 0 งาน</span>
-                </div>
-                <div class="progress-bar-bg">
-                    <div class="progress-bar-fill" id="progress-bar" style="width: 0%"></div>
+                <div class="progress-card-layout">
+                    <div class="progress-ring-wrapper">
+                        <svg class="progress-ring" width="64" height="64">
+                            <circle class="progress-ring-circle-bg" stroke="var(--bg-tertiary)" stroke-width="6" fill="transparent" r="26" cx="32" cy="32"/>
+                            <circle id="progress-ring-fill" class="progress-ring-circle-fill" stroke="var(--color-accent)" stroke-width="6" fill="transparent" r="26" cx="32" cy="32"/>
+                        </svg>
+                        <span class="progress-percent-label" id="progress-percent-label">0%</span>
+                    </div>
+                    <div class="progress-info">
+                        <span class="progress-title" id="progress-text-summary">กำลังทำได้ดี! เสร็จไปแล้ว 0%</span>
+                        <span class="progress-count" id="progress-text-count">0 จาก 0 งาน</span>
+                    </div>
                 </div>
             </div>
         </header>
@@ -114,6 +129,58 @@
             <p>Mellow Tracker © 2026 • Modern Minimal Assignment Tracker</p>
             <p class="footer-note" id="connection-status">บันทึกข้อมูลแบบ Local Storage • สามารถเชื่อมโยงฐานข้อมูลในอนาคตได้</p>
         </footer>
+    </div>
+
+    <!-- Subject Management Modal (กล่องลอยตั้งค่าวิชา) -->
+    <div id="subject-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-gear"></i> จัดการรายวิชา</h2>
+                <button id="close-subject-modal" class="btn-close-modal" aria-label="ปิดหน้าต่าง">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Form to Add Subject -->
+                <form id="add-subject-form" class="add-subject-form" autocomplete="off">
+                    <h4>เพิ่มรายวิชาใหม่</h4>
+                    <div class="modal-form-row">
+                        <div class="input-group text-input-group">
+                            <label for="new-subject-name">ชื่อวิชา / หมวดหมู่</label>
+                            <input type="text" id="new-subject-name" placeholder="เช่น ฟิสิกส์, สถิติ, ประวัติศาสตร์..." required>
+                        </div>
+                        <div class="input-group">
+                            <label for="new-subject-emoji">ไอคอนอีโมจิ</label>
+                            <select id="new-subject-emoji" required>
+                                <option value="📝">📝 สมุดบันทึก</option>
+                                <option value="📐">📐 คณิตศาสตร์</option>
+                                <option value="🔬">🔬 วิทยาศาสตร์</option>
+                                <option value="🇬🇧">🇬🇧 ภาษาอังกฤษ</option>
+                                <option value="🇹🇭">🇹🇭 ภาษาไทย</option>
+                                <option value="🎨">🎨 ศิลปะ/ดีไซน์</option>
+                                <option value="💻">💻 คอมพิวเตอร์</option>
+                                <option value="🧬">🧬 ชีววิทยา</option>
+                                <option value="📚">📚 สังคมศึกษา</option>
+                                <option value="🎵">🎵 ดนตรี</option>
+                                <option value="🏃">🏃 พละศึกษา</option>
+                                <option value="☕">☕ ทั่วไป</option>
+                            </select>
+                        </div>
+                        <div class="input-group btn-group-submit">
+                            <button type="submit" class="btn-primary">
+                                <i class="fa-solid fa-plus"></i> เพิ่มวิชา
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                
+                <!-- List of Subjects -->
+                <div class="subjects-list-container">
+                    <h4>รายวิชาที่มีอยู่ทั้งหมด</h4>
+                    <ul id="modal-subjects-list" class="modal-subjects-list">
+                        <!-- Dynamic list of subjects with delete button will be loaded here -->
+                    </ul>
+                </div>
+            </div>
+        </div>
     </div>
     
     <script type="module" src="app.js"></script>

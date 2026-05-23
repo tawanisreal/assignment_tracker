@@ -2,9 +2,11 @@
  * Mellow Tracker - JavaScript Logic
  * Modern Minimalist Assignment Tracker with Brown Theme & Light/Dark Mode
  * Connected to Supabase Cloud Database with LocalStorage Fallback & High Resilience
+ * Features: PWA Offline support, SVG Progress Ring, Confetti on Complete, Dynamic Subject Creator Modal
  */
 
 import { createClient } from '@supabase/supabase-js';
+import confetti from 'canvas-confetti';
 
 // ==========================================================================
 // 0. Configuration & Connection Checks (Safe initialization)
@@ -16,7 +18,7 @@ try {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-    // ตรวจสอบคีย์อย่างละเอียด รวมถึงกรณีที่ Vite แทนที่ด้วยสตริงเปล่าหรือคำว่า "undefined"
+    // ตรวจสอบคีย์ความลับ รวมถึงกรณีที่ Vite แทนที่ด้วยสตริงเปล่าหรือคำว่า "undefined"
     isSupabaseConfigured = 
         supabaseUrl && 
         supabaseAnonKey && 
@@ -40,7 +42,7 @@ try {
 // 1. Data Repositories
 // ==========================================================================
 
-// Local Storage Repository
+// Local Storage Repository (โหมดออฟไลน์)
 class LocalStorageTaskRepository {
     constructor() {
         this.STORAGE_KEY = 'mellow_tasks_data';
@@ -81,7 +83,7 @@ class LocalStorageTaskRepository {
     }
 }
 
-// Supabase Cloud Repository
+// Supabase Cloud Repository (โหมดออนไลน์คลาวด์)
 class SupabaseTaskRepository {
     async getAll() {
         const { data, error } = await supabase
@@ -190,10 +192,22 @@ class MellowApp {
         this.badgeActive = document.getElementById('badge-active');
         this.badgeCompleted = document.getElementById('badge-completed');
 
-        // Progress bar elements
-        this.progressBar = document.getElementById('progress-bar');
+        // SVG Progress Ring Elements
+        this.progressRingFill = document.getElementById('progress-ring-fill');
+        this.progressPercentLabel = document.getElementById('progress-percent-label');
+        
+        // Header & Progress text elements
         this.progressTextSummary = document.getElementById('progress-text-summary');
         this.progressTextCount = document.getElementById('progress-text-count');
+
+        // Subject Modal Elements
+        this.manageSubjectsBtn = document.getElementById('manage-subjects-btn');
+        this.subjectModal = document.getElementById('subject-modal');
+        this.closeSubjectModalBtn = document.getElementById('close-subject-modal');
+        this.addSubjectForm = document.getElementById('add-subject-form');
+        this.newSubjectName = document.getElementById('new-subject-name');
+        this.newSubjectEmoji = document.getElementById('new-subject-emoji');
+        this.modalSubjectsList = document.getElementById('modal-subjects-list');
     }
 
     async init() {
@@ -201,6 +215,7 @@ class MellowApp {
         this.setDefaultDate();
         this.updateConnectionStatus();
         this.setupEventListeners();
+        this.registerServiceWorker(); // เปิดลงทะเบียน PWA Offline Mode
         
         // 1. โหลดรายวิชาเริ่มต้น (Default) ไว้ก่อนทันทีเพื่อป้องกันหน้าจอค้าง
         this.loadDefaultSubjects();
@@ -212,7 +227,19 @@ class MellowApp {
         // 3. ค่อยรันงานดึงวิชาและฟังก์ชัน Realtime จากคลาวด์ในเบื้องหลัง
         if (isSupabaseConfigured && supabase) {
             this.setupRealtime();
-            this.syncSubjectsFromCloud(); // ไม่ใส่ await เพื่อไม่ให้บล็อกการแสดงผลหลัก
+            this.syncSubjectsFromCloud(); 
+        }
+    }
+
+    // Register Service Worker for PWA
+    registerServiceWorker() {
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // รันการลงทะเบียนไฟล์ sw.js
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Mellow PWA: Service Worker registered successfully', reg.scope))
+                    .catch(err => console.error('Mellow PWA: Service Worker registration failed', err));
+            });
         }
     }
 
@@ -259,15 +286,26 @@ class MellowApp {
 
     // Default subjects array
     loadDefaultSubjects() {
-        this.subjects = [
-            { id: 'general', name: 'ทั่วไป', emoji: '☕' },
-            { id: 'math', name: 'คณิตศาสตร์', emoji: '📐' },
-            { id: 'science', name: 'วิทยาศาสตร์', emoji: '🔬' },
-            { id: 'english', name: 'ภาษาอังกฤษ', emoji: '🇬🇧' },
-            { id: 'thai', name: 'ภาษาไทย', emoji: '🇹🇭' },
-            { id: 'design', name: 'ศิลปะ/ดีไซน์', emoji: '🎨' },
-            { id: 'computer', name: 'คอมพิวเตอร์', emoji: '💻' }
-        ];
+        const saved = localStorage.getItem('mellow_subjects_data');
+        if (saved) {
+            this.subjects = JSON.parse(saved);
+        } else {
+            this.subjects = [
+                { id: 'general', name: 'ทั่วไป', emoji: '☕' },
+                { id: 'math', name: 'คณิตศาสตร์', emoji: '📐' },
+                { id: 'science', name: 'วิทยาศาสตร์', emoji: '🔬' },
+                { id: 'english', name: 'ภาษาอังกฤษ', emoji: '🇬🇧' },
+                { id: 'thai', name: 'ภาษาไทย', emoji: '🇹🇭' },
+                { id: 'design', name: 'ศิลปะ/ดีไซน์', emoji: '🎨' },
+                { id: 'computer', name: 'คอมพิวเตอร์', emoji: '💻' }
+            ];
+            this.saveLocalSubjects(this.subjects);
+        }
+    }
+
+    // Save subjects list locally in LocalStorage
+    saveLocalSubjects(subjectsList) {
+        localStorage.setItem('mellow_subjects_data', JSON.stringify(subjectsList));
     }
 
     // Sync subjects list from Supabase
@@ -282,7 +320,7 @@ class MellowApp {
             if (data && data.length > 0) {
                 this.subjects = data;
                 this.renderSubjectDropdown();
-                this.render(); // รีเรนเดอร์อีกครั้งเพื่อให้ป้ายชื่อแสดงผลตามฐานข้อมูลคลาวด์
+                this.render(); 
             }
         } catch (err) {
             console.error("Mellow Tracker: Error syncing subjects from Supabase, using offline defaults:", err);
@@ -338,6 +376,150 @@ class MellowApp {
                 this.deleteTaskWithAnimation(taskItem, taskId);
             }
         });
+
+        // Event listeners สำหรับ Subject Creator Modal
+        if (this.manageSubjectsBtn) {
+            this.manageSubjectsBtn.addEventListener('click', () => this.openSubjectModal());
+        }
+
+        if (this.closeSubjectModalBtn) {
+            this.closeSubjectModalBtn.addEventListener('click', () => this.closeSubjectModal());
+        }
+
+        if (this.subjectModal) {
+            this.subjectModal.addEventListener('click', (e) => {
+                if (e.target === this.subjectModal) this.closeSubjectModal();
+            });
+        }
+
+        if (this.addSubjectForm) {
+            this.addSubjectForm.addEventListener('submit', (e) => this.handleAddSubject(e));
+        }
+
+        if (this.modalSubjectsList) {
+            this.modalSubjectsList.addEventListener('click', (e) => {
+                const deleteBtn = e.target.closest('.btn-icon-delete');
+                if (deleteBtn) {
+                    const subjectId = deleteBtn.dataset.id;
+                    this.handleDeleteSubject(subjectId);
+                }
+            });
+        }
+    }
+
+    // Modal Control Methods
+    openSubjectModal() {
+        if (this.subjectModal) {
+            this.subjectModal.classList.add('active');
+            this.renderModalSubjectsList();
+        }
+    }
+
+    closeSubjectModal() {
+        if (this.subjectModal) {
+            this.subjectModal.classList.remove('active');
+        }
+    }
+
+    renderModalSubjectsList() {
+        if (!this.modalSubjectsList) return;
+        this.modalSubjectsList.innerHTML = '';
+
+        this.subjects.forEach(sub => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <div class="subject-info-item">
+                    <span>${sub.emoji}</span>
+                    <span>${sub.name}</span>
+                </div>
+                ${sub.id !== 'general' ? `
+                    <button class="btn-icon-delete" data-id="${sub.id}" title="ลบรายวิชา" aria-label="ลบรายวิชา">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                ` : ''}
+            `;
+            this.modalSubjectsList.appendChild(li);
+        });
+    }
+
+    // Add Subject via Modal
+    async handleAddSubject(e) {
+        e.preventDefault();
+        const name = this.newSubjectName.value.trim();
+        const emoji = this.newSubjectEmoji.value;
+
+        if (!name || !emoji) return;
+
+        // สร้าง ID เสมือน
+        const id = 'subj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+        const newSub = { id, name, emoji };
+
+        try {
+            if (isSupabaseConfigured && supabase) {
+                const { data, error } = await supabase
+                    .from('subjects')
+                    .insert([newSub])
+                    .select();
+                if (error) throw error;
+            } else {
+                // บันทึกลง LocalStorage
+                const updatedList = [...this.subjects, newSub];
+                this.saveLocalSubjects(updatedList);
+            }
+
+            this.subjects.push(newSub);
+            this.renderSubjectDropdown();
+            this.renderModalSubjectsList();
+            this.render(); // อัปเดตการแสดงผลวิชาการ์ดงาน
+
+            // Reset Inputs
+            this.newSubjectName.value = '';
+            this.newSubjectEmoji.selectedIndex = 0;
+
+        } catch (err) {
+            console.error("Error adding subject:", err);
+            alert("ไม่สามารถเพิ่มรายวิชาได้");
+        }
+    }
+
+    // Delete Subject via Modal
+    async handleDeleteSubject(subjectId) {
+        if (subjectId === 'general') return;
+        
+        const confirmDelete = confirm("คุณแน่ใจหรือไม่ว่าต้องการลบรายวิชานี้?\n(งานในบอร์ดที่อิงวิชานี้จะถูกตั้งกลับเป็นวิชา 'ทั่วไป ☕' อัตโนมัติ)");
+        if (!confirmDelete) return;
+
+        try {
+            if (isSupabaseConfigured && supabase) {
+                // สั่งลบจากตารางในระบบคลาวด์ (Foreign key references set default จะทำงานให้ใน DB)
+                const { error } = await supabase
+                    .from('subjects')
+                    .delete()
+                    .eq('id', subjectId);
+                if (error) throw error;
+            } else {
+                // ออฟไลน์: สลับงานที่มีของวิชานี้กลับเป็นวิชาทั่วไป
+                const updatedSubjects = this.subjects.filter(s => s.id !== subjectId);
+                this.saveLocalSubjects(updatedSubjects);
+
+                this.tasks.forEach(task => {
+                    if (task.subject === subjectId) task.subject = 'general';
+                });
+                
+                const localDb = new LocalStorageTaskRepository();
+                await localDb.saveAll(this.tasks);
+            }
+
+            // อัปเดตหน้าจอ
+            this.subjects = this.subjects.filter(s => s.id !== subjectId);
+            this.renderSubjectDropdown();
+            this.renderModalSubjectsList();
+            this.render();
+
+        } catch (err) {
+            console.error("Error deleting subject:", err);
+            alert("ไม่สามารถลบรายวิชาได้");
+        }
     }
 
     // Load tasks from DB
@@ -347,7 +529,6 @@ class MellowApp {
         } catch (err) {
             console.error("Mellow Tracker: Error loading tasks from database:", err);
             
-            // กรณีคีย์เชื่อมต่อผิดพลาดและเรียกข้อมูลคลาวด์ไม่ได้ ให้กู้ข้อมูล local มาทำงานแทนไม่ให้บอร์ดว่างเปล่า
             if (isSupabaseConfigured) {
                 console.log("Mellow Tracker: Database request failed. Falling back to local storage offline tasks...");
                 const localDb = new LocalStorageTaskRepository();
@@ -388,7 +569,6 @@ class MellowApp {
         } catch (err) {
             console.error("Error saving task:", err);
             
-            // กรณีเขียนข้อมูลคลาวด์ล้มเหลว ให้บันทึกลง local storage แก้ขัดไปก่อนเพื่อความต่อเนื่อง
             console.log("Saving task to offline storage fallback...");
             const localDb = new LocalStorageTaskRepository();
             const fallbackTask = await localDb.add(newTask);
@@ -402,6 +582,12 @@ class MellowApp {
         const task = this.tasks.find(t => t.id === id);
         if (task) {
             task.completed = isCompleted;
+            
+            // เล่นเอฟเฟกต์ Confetti เมื่อเช็คงานสำเร็จ
+            if (isCompleted) {
+                this.triggerConfetti();
+            }
+
             try {
                 await db.update(id, { completed: isCompleted });
                 setTimeout(() => {
@@ -409,7 +595,6 @@ class MellowApp {
                 }, 200);
             } catch (err) {
                 console.error("Error updating status:", err);
-                // ตรวจเช็คว่าอัพเดตผ่าน LocalStorage แก้ขัดได้หรือไม่
                 const localDb = new LocalStorageTaskRepository();
                 try {
                     await localDb.update(id, { completed: isCompleted });
@@ -419,6 +604,17 @@ class MellowApp {
                 }, 200);
             }
         }
+    }
+
+    // Confetti Animation Effect
+    triggerConfetti() {
+        const colors = ['#614033', '#8C5F40', '#D7CCC8', '#F5EDE8'];
+        confetti({
+            particleCount: 80,
+            spread: 55,
+            origin: { y: 0.8 },
+            colors: colors
+        });
     }
 
     // Perform smooth deletion with CSS animation
@@ -433,7 +629,6 @@ class MellowApp {
             } catch (err) {
                 console.error("Error deleting task:", err);
                 
-                // ลองลบใน local แก้ขัด
                 const localDb = new LocalStorageTaskRepository();
                 try { await localDb.delete(id); } catch(e) {}
                 
@@ -512,7 +707,7 @@ class MellowApp {
         });
     }
 
-    // Update progress bar UI
+    // Update SVG Progress Ring UI
     updateProgressUI() {
         const total = this.tasks.length;
         const completed = this.tasks.filter(t => t.completed).length;
@@ -521,15 +716,32 @@ class MellowApp {
         this.badgeActive.textContent = this.tasks.filter(t => !t.completed).length;
         this.badgeCompleted.textContent = completed;
 
+        // ความยาวเส้นรอบวง SVG = 2 * pi * r = 2 * 3.14159 * 26 = 163.36
+        const circumference = 163.36;
+
         if (total === 0) {
-            this.progressBar.style.width = '0%';
+            if (this.progressRingFill) {
+                this.progressRingFill.style.strokeDashoffset = circumference;
+            }
+            if (this.progressPercentLabel) {
+                this.progressPercentLabel.textContent = '0%';
+            }
             this.progressTextSummary.textContent = 'เริ่มต้นวันใหม่ด้วยสมาธิที่ดี! ☕';
             this.progressTextCount.textContent = '0 จาก 0 งาน';
             return;
         }
 
         const percentage = Math.round((completed / total) * 100);
-        this.progressBar.style.width = `${percentage}%`;
+        
+        // คำนวณ offset การวาดเส้นวงกลมความก้าวหน้า
+        if (this.progressRingFill) {
+            const offset = circumference - (percentage / 100) * circumference;
+            this.progressRingFill.style.strokeDashoffset = offset;
+        }
+        if (this.progressPercentLabel) {
+            this.progressPercentLabel.textContent = `${percentage}%`;
+        }
+
         this.progressTextCount.textContent = `${completed} จาก ${total} งาน`;
 
         if (percentage === 100) {
@@ -604,6 +816,7 @@ class MellowApp {
     setupRealtime() {
         if (!isSupabaseConfigured || !supabase) return;
 
+        // ติดตามตาราง Tasks
         supabase
             .channel('public:tasks')
             .on(
@@ -629,6 +842,19 @@ class MellowApp {
                     }
                     
                     this.render();
+                }
+            )
+            .subscribe();
+
+        // ติดตามตาราง Subjects
+        supabase
+            .channel('public:subjects')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'subjects' },
+                async () => {
+                    // โหลดวิชาใหม่ทั้งหมดแบบเรียลไทม์ข้ามเครื่อง
+                    await this.syncSubjectsFromCloud();
                 }
             )
             .subscribe();
