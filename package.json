@@ -1,0 +1,16 @@
+{
+  "name": "mellow-tracker",
+  "version": "1.0.0",
+  "description": "Modern Minimalist Brown-themed Assignment Tracker",
+  "scripts": {
+    "dev": "vite --open",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.2.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.106.1"
+  }
+}
