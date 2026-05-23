@@ -637,8 +637,20 @@ class MellowApp {
     async loadTasks() {
         try {
             this.tasks = await db.getAll();
+            
+            // อัปเดตสถานะการเชื่อมต่อเมื่อดึงข้อมูลได้สำเร็จ
+            const statusText = document.getElementById('connection-status');
+            if (statusText && isSupabaseConfigured) {
+                statusText.innerHTML = '<i class="fa-solid fa-cloud" style="color: var(--color-accent);"></i> เชื่อมต่อฐานข้อมูลคลาวด์ Supabase แล้ว';
+            }
         } catch (err) {
             console.error("Mellow Tracker: Error loading tasks from database:", err);
+            
+            // แสดงปัญหาข้อผิดพลาดบนหน้าเว็บเพื่อให้ผู้ใช้ตรวจทานได้ง่าย
+            const statusText = document.getElementById('connection-status');
+            if (statusText && isSupabaseConfigured) {
+                statusText.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color: #d9534f;"></i> เชื่อมต่อฐานข้อมูลล้มเหลว: ${err.message || err}`;
+            }
             
             if (isSupabaseConfigured) {
                 console.log("Mellow Tracker: Database request failed. Falling back to local storage offline tasks...");
