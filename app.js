@@ -206,7 +206,6 @@ class MellowApp {
         this.closeSubjectModalBtn = document.getElementById('close-subject-modal');
         this.addSubjectForm = document.getElementById('add-subject-form');
         this.newSubjectName = document.getElementById('new-subject-name');
-        this.newSubjectEmoji = document.getElementById('new-subject-emoji');
         this.modalSubjectsList = document.getElementById('modal-subjects-list');
     }
 
@@ -291,13 +290,13 @@ class MellowApp {
             this.subjects = JSON.parse(saved);
         } else {
             this.subjects = [
-                { id: 'general', name: 'ทั่วไป', emoji: '☕' },
-                { id: 'math', name: 'คณิตศาสตร์', emoji: '📐' },
-                { id: 'science', name: 'วิทยาศาสตร์', emoji: '🔬' },
-                { id: 'english', name: 'ภาษาอังกฤษ', emoji: '🇬🇧' },
-                { id: 'thai', name: 'ภาษาไทย', emoji: '🇹🇭' },
-                { id: 'design', name: 'ศิลปะ/ดีไซน์', emoji: '🎨' },
-                { id: 'computer', name: 'คอมพิวเตอร์', emoji: '💻' }
+                { id: 'general', name: 'ทั่วไป', emoji: '' },
+                { id: 'math', name: 'คณิตศาสตร์', emoji: '' },
+                { id: 'science', name: 'วิทยาศาสตร์', emoji: '' },
+                { id: 'english', name: 'ภาษาอังกฤษ', emoji: '' },
+                { id: 'thai', name: 'ภาษาไทย', emoji: '' },
+                { id: 'design', name: 'ศิลปะ/ดีไซน์', emoji: '' },
+                { id: 'computer', name: 'คอมพิวเตอร์', emoji: '' }
             ];
             this.saveLocalSubjects(this.subjects);
         }
@@ -335,7 +334,7 @@ class MellowApp {
         this.subjects.forEach(sub => {
             const opt = document.createElement('option');
             opt.value = sub.id;
-            opt.textContent = `${sub.name} ${sub.emoji}`;
+            opt.textContent = sub.name;
             if (sub.id === 'general') opt.selected = true;
             this.taskSubject.appendChild(opt);
         });
@@ -429,7 +428,6 @@ class MellowApp {
             const li = document.createElement('li');
             li.innerHTML = `
                 <div class="subject-info-item">
-                    <span>${sub.emoji}</span>
                     <span>${sub.name}</span>
                 </div>
                 ${sub.id !== 'general' ? `
@@ -446,13 +444,12 @@ class MellowApp {
     async handleAddSubject(e) {
         e.preventDefault();
         const name = this.newSubjectName.value.trim();
-        const emoji = this.newSubjectEmoji.value;
 
-        if (!name || !emoji) return;
+        if (!name) return;
 
         // สร้าง ID เสมือน
         const id = 'subj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-        const newSub = { id, name, emoji };
+        const newSub = { id, name, emoji: '' };
 
         try {
             if (isSupabaseConfigured && supabase) {
@@ -474,7 +471,6 @@ class MellowApp {
 
             // Reset Inputs
             this.newSubjectName.value = '';
-            this.newSubjectEmoji.selectedIndex = 0;
 
         } catch (err) {
             console.error("Error adding subject:", err);
@@ -486,7 +482,7 @@ class MellowApp {
     async handleDeleteSubject(subjectId) {
         if (subjectId === 'general') return;
         
-        const confirmDelete = confirm("คุณแน่ใจหรือไม่ว่าต้องการลบรายวิชานี้?\n(งานในบอร์ดที่อิงวิชานี้จะถูกตั้งกลับเป็นวิชา 'ทั่วไป ☕' อัตโนมัติ)");
+        const confirmDelete = confirm("คุณแน่ใจหรือไม่ว่าต้องการลบรายวิชานี้?\n(งานในบอร์ดที่อิงวิชานี้จะถูกตั้งกลับเป็นวิชา 'ทั่วไป' อัตโนมัติ)");
         if (!confirmDelete) return;
 
         try {
@@ -674,7 +670,7 @@ class MellowApp {
     // Translate subject ID to Thai label
     getSubjectLabel(subjectId) {
         const found = this.subjects.find(s => s.id === subjectId);
-        return found ? `${found.name} ${found.emoji}` : 'ทั่วไป ☕';
+        return found ? found.name : 'ทั่วไป';
     }
 
     // Filter tasks

@@ -885,7 +885,7 @@ select:focus {
 
 .modal-form-row {
     display: grid;
-    grid-template-columns: 1.5fr 1fr auto;
+    grid-template-columns: 1fr auto;
     gap: 1rem;
     align-items: flex-end;
 }

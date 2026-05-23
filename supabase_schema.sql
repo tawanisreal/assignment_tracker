@@ -20,13 +20,13 @@ create policy "Allow public write access on subjects" on subjects for all using 
 
 -- Seed default subjects (เพิ่มวิชาเริ่มต้น)
 insert into subjects (id, name, emoji) values
-  ('general', 'ทั่วไป', '☕'),
-  ('math', 'คณิตศาสตร์', '📐'),
-  ('science', 'วิทยาศาสตร์', '🔬'),
-  ('english', 'ภาษาอังกฤษ', '🇬🇧'),
-  ('thai', 'ภาษาไทย', '🇹🇭'),
-  ('design', 'ศิลปะ/ดีไซน์', '🎨'),
-  ('computer', 'คอมพิวเตอร์', '💻')
+  ('general', 'ทั่วไป', ''),
+  ('math', 'คณิตศาสตร์', ''),
+  ('science', 'วิทยาศาสตร์', ''),
+  ('english', 'ภาษาอังกฤษ', ''),
+  ('thai', 'ภาษาไทย', ''),
+  ('design', 'ศิลปะ/ดีไซน์', ''),
+  ('computer', 'คอมพิวเตอร์', '')
 on conflict (id) do update 
 set name = excluded.name, emoji = excluded.emoji;
 

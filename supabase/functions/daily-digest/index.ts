@@ -41,10 +41,10 @@ serve(async (req) => {
 
     const subjectsMap = new Map(subjects.map(s => [s.id, s]));
 
-    // Helper ในการประกอบชื่อวิชาและ Emoji
+    // Helper ในการประกอบชื่อวิชา
     const getSubjectLabel = (subjectId: string) => {
       const sub = subjectsMap.get(subjectId);
-      return sub ? `${sub.name} ${sub.emoji}` : 'ทั่วไป ☕';
+      return sub ? `${sub.name}` : 'ทั่วไป';
     }
 
     // 4. ดึงเฉพาะงานที่ยังไม่ได้เช็คเสร็จ (completed = false)
