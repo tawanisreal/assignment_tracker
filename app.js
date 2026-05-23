@@ -218,6 +218,16 @@ class MellowApp {
         this.customSortTrigger = document.getElementById('custom-sort-trigger');
         this.customSortTriggerText = this.customSortTrigger?.querySelector('.custom-select-trigger-text');
         this.customSortOptions = document.getElementById('custom-sort-options');
+
+        // Custom Date Picker Elements
+        this.customDateWrapper = document.getElementById('custom-date-wrapper');
+        this.customDateTrigger = document.getElementById('custom-date-trigger');
+        this.customDateText = document.getElementById('custom-date-text');
+        this.calendarDaysGrid = document.getElementById('calendar-days-grid');
+        this.calMonthYear = document.getElementById('cal-month-year');
+        this.calPrevMonth = document.getElementById('cal-prev-month');
+        this.calNextMonth = document.getElementById('cal-next-month');
+        this.calendarCurrentDate = new Date();
     }
 
     async init() {
@@ -292,6 +302,82 @@ class MellowApp {
         const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
         const dd = String(tomorrow.getDate()).padStart(2, '0');
         this.taskDueDate.value = `${yyyy}-${mm}-${dd}`;
+        this.updateCustomDateText();
+    }
+
+    // Update Custom Date trigger text
+    updateCustomDateText() {
+        if (!this.customDateText || !this.taskDueDate) return;
+        const val = this.taskDueDate.value;
+        if (val) {
+            this.customDateText.textContent = this.formatThaiDate(val);
+        } else {
+            this.customDateText.textContent = 'เลือกวันส่ง...';
+        }
+    }
+
+    // Render Custom Calendar
+    renderCalendar() {
+        if (!this.calendarDaysGrid || !this.calMonthYear) return;
+
+        const year = this.calendarCurrentDate.getFullYear();
+        const month = this.calendarCurrentDate.getMonth();
+
+        const thaiMonths = [
+            'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+            'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+        ];
+        this.calMonthYear.textContent = `${thaiMonths[month]} ${year + 543}`;
+
+        this.calendarDaysGrid.innerHTML = '';
+
+        const firstDayIndex = new Date(year, month, 1).getDay();
+        const totalDays = new Date(year, month + 1, 0).getDate();
+
+        for (let i = 0; i < firstDayIndex; i++) {
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'calendar-day empty';
+            this.calendarDaysGrid.appendChild(emptyDiv);
+        }
+
+        let selectedDateStr = this.taskDueDate.value;
+        let selYear = null, selMonth = null, selDay = null;
+        if (selectedDateStr) {
+            const parts = selectedDateStr.split('-');
+            selYear = parseInt(parts[0]);
+            selMonth = parseInt(parts[1]) - 1;
+            selDay = parseInt(parts[2]);
+        }
+
+        const today = new Date();
+
+        for (let day = 1; day <= totalDays; day++) {
+            const dayDiv = document.createElement('div');
+            dayDiv.className = 'calendar-day';
+            dayDiv.textContent = day;
+
+            if (selYear === year && selMonth === month && selDay === day) {
+                dayDiv.classList.add('selected');
+            }
+
+            if (today.getFullYear() === year && today.getMonth() === month && today.getDate() === day) {
+                dayDiv.classList.add('today');
+            }
+
+            dayDiv.addEventListener('click', () => {
+                const mmStr = String(month + 1).padStart(2, '0');
+                const ddStr = String(day).padStart(2, '0');
+                const finalDateStr = `${year}-${mmStr}-${ddStr}`;
+
+                this.taskDueDate.value = finalDateStr;
+                this.updateCustomDateText();
+
+                this.customDateWrapper?.classList.remove('open');
+                this.renderCalendar();
+            });
+
+            this.calendarDaysGrid.appendChild(dayDiv);
+        }
     }
 
     // Default subjects array
@@ -444,6 +530,7 @@ class MellowApp {
             this.customSubjectTrigger.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.customSortWrapper?.classList.remove('open');
+                this.customDateWrapper?.classList.remove('open');
                 this.customSubjectWrapper?.classList.toggle('open');
             });
         }
@@ -453,7 +540,28 @@ class MellowApp {
             this.customSortTrigger.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.customSubjectWrapper?.classList.remove('open');
+                this.customDateWrapper?.classList.remove('open');
                 this.customSortWrapper?.classList.toggle('open');
+            });
+        }
+
+        // Toggle Date Picker open/close
+        if (this.customDateTrigger) {
+            this.customDateTrigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.customSubjectWrapper?.classList.remove('open');
+                this.customSortWrapper?.classList.remove('open');
+                const isOpen = this.customDateWrapper?.classList.toggle('open');
+                if (isOpen) {
+                    let currentVal = this.taskDueDate.value;
+                    if (currentVal) {
+                        const parts = currentVal.split('-');
+                        this.calendarCurrentDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
+                    } else {
+                        this.calendarCurrentDate = new Date();
+                    }
+                    this.renderCalendar();
+                }
             });
         }
 
@@ -461,7 +569,34 @@ class MellowApp {
         document.addEventListener('click', () => {
             this.customSubjectWrapper?.classList.remove('open');
             this.customSortWrapper?.classList.remove('open');
+            this.customDateWrapper?.classList.remove('open');
         });
+
+        // Prev Month click
+        if (this.calPrevMonth) {
+            this.calPrevMonth.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.calendarCurrentDate.setMonth(this.calendarCurrentDate.getMonth() - 1);
+                this.renderCalendar();
+            });
+        }
+
+        // Next Month click
+        if (this.calNextMonth) {
+            this.calNextMonth.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.calendarCurrentDate.setMonth(this.calendarCurrentDate.getMonth() + 1);
+                this.renderCalendar();
+            });
+        }
+
+        // Prevent clicking inside date picker container from closing it
+        const datePickerContainer = document.getElementById('custom-date-picker');
+        if (datePickerContainer) {
+            datePickerContainer.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        }
 
         // Click handler for Sort options
         if (this.customSortOptions) {

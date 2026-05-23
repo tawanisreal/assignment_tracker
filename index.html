@@ -70,8 +70,27 @@
                     
                     <div class="form-row form-row-split">
                         <div class="input-group">
-                            <label for="task-due-date">กำหนดส่ง</label>
-                            <input type="date" id="task-due-date" required>
+                            <label>กำหนดส่ง</label>
+                            <div class="custom-select-wrapper" id="custom-date-wrapper">
+                                <div class="custom-select-trigger" id="custom-date-trigger">
+                                    <span class="custom-select-trigger-text" id="custom-date-text">เลือกวันส่ง...</span>
+                                    <i class="fa-regular fa-calendar custom-select-arrow"></i>
+                                </div>
+                                <div class="custom-date-picker-container" id="custom-date-picker">
+                                    <div class="calendar-header">
+                                        <button type="button" class="calendar-btn" id="cal-prev-month"><i class="fa-solid fa-chevron-left"></i></button>
+                                        <span class="calendar-month-year" id="cal-month-year">มกราคม 2569</span>
+                                        <button type="button" class="calendar-btn" id="cal-next-month"><i class="fa-solid fa-chevron-right"></i></button>
+                                    </div>
+                                    <div class="calendar-weekdays">
+                                        <span>อา</span><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span>
+                                    </div>
+                                    <div class="calendar-days" id="calendar-days-grid">
+                                        <!-- Days will be generated dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="date" id="task-due-date" required style="display: none;">
                         </div>
                         <div class="input-group">
                             <label>วิชา / หมวดหมู่</label>
