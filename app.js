@@ -1,34 +1,46 @@
 /**
  * Mellow Tracker - JavaScript Logic
  * Modern Minimalist Assignment Tracker with Brown Theme & Light/Dark Mode
- * Connected to Supabase Cloud Database with LocalStorage Fallback
+ * Connected to Supabase Cloud Database with LocalStorage Fallback & High Resilience
  */
 
 import { createClient } from '@supabase/supabase-js';
 
 // ==========================================================================
-// 0. Configuration & Connection Checks
+// 0. Configuration & Connection Checks (Safe initialization)
 // ==========================================================================
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-// ตรวจสอบว่าผู้ใช้ตั้งค่า Key หรือยัง (ป้องกันการชนกับค่า Placeholder)
-const isSupabaseConfigured = 
-    supabaseUrl && 
-    supabaseAnonKey && 
-    supabaseUrl !== 'https://your-project-id.supabase.co' && 
-    supabaseAnonKey !== 'your-anon-key-here';
-
 let supabase = null;
-if (isSupabaseConfigured) {
-    supabase = createClient(supabaseUrl, supabaseAnonKey);
+let isSupabaseConfigured = false;
+
+try {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    // ตรวจสอบคีย์อย่างละเอียด รวมถึงกรณีที่ Vite แทนที่ด้วยสตริงเปล่าหรือคำว่า "undefined"
+    isSupabaseConfigured = 
+        supabaseUrl && 
+        supabaseAnonKey && 
+        supabaseUrl !== 'undefined' && 
+        supabaseAnonKey !== 'undefined' && 
+        supabaseUrl !== 'null' && 
+        supabaseAnonKey !== 'null' && 
+        supabaseUrl !== '' &&
+        supabaseUrl !== 'https://your-project-id.supabase.co' && 
+        supabaseAnonKey !== 'your-anon-key-here';
+
+    if (isSupabaseConfigured) {
+        supabase = createClient(supabaseUrl, supabaseAnonKey);
+    }
+} catch (e) {
+    console.error("Mellow Tracker: Supabase initialization failed, falling back to LocalStorage:", e);
+    isSupabaseConfigured = false;
 }
 
 // ==========================================================================
 // 1. Data Repositories
 // ==========================================================================
 
-// Local Storage Repository (ใช้ตอนไม่มี Key)
+// Local Storage Repository
 class LocalStorageTaskRepository {
     constructor() {
         this.STORAGE_KEY = 'mellow_tasks_data';
@@ -69,7 +81,7 @@ class LocalStorageTaskRepository {
     }
 }
 
-// Supabase Cloud Repository (ใช้เมื่อเชื่อมต่อสำเร็จ)
+// Supabase Cloud Repository
 class SupabaseTaskRepository {
     async getAll() {
         const { data, error } = await supabase
@@ -79,7 +91,6 @@ class SupabaseTaskRepository {
             
         if (error) throw error;
         
-        // Map db snake_case properties to JS camelCase
         return data.map(item => ({
             id: item.id,
             title: item.title,
@@ -91,7 +102,6 @@ class SupabaseTaskRepository {
     }
 
     async add(task) {
-        // ให้ Supabase ช่วยสร้าง ID แบบ UUID หากไม่ใช่การเพิ่มข้อมูลแบบแมนนวล
         const { data, error } = await supabase
             .from('tasks')
             .insert([{
@@ -159,7 +169,7 @@ const db = isSupabaseConfigured ? new SupabaseTaskRepository() : new LocalStorag
 class MellowApp {
     constructor() {
         this.tasks = [];
-        this.subjects = []; // รายวิชาที่จะดึงจากคลาวด์แบบไดนามิก
+        this.subjects = []; 
         this.currentFilter = 'all'; 
         this.currentSort = 'created-desc'; 
         this.theme = 'light';
@@ -191,56 +201,19 @@ class MellowApp {
         this.setDefaultDate();
         this.updateConnectionStatus();
         this.setupEventListeners();
-        await this.loadSubjects(); // โหลดวิชาก่อนโหลดงาน
+        
+        // 1. โหลดรายวิชาเริ่มต้น (Default) ไว้ก่อนทันทีเพื่อป้องกันหน้าจอค้าง
+        this.loadDefaultSubjects();
+        this.renderSubjectDropdown();
+        
+        // 2. ดึงข้อมูลงานเบื้องต้นมาแสดงผลก่อน
         await this.loadTasks();
-        this.setupRealtime(); // เปิดระบบฟังการอัปเดตเรียลไทม์
-    }
 
-    // Map DB snake_case columns to JS camelCase properties
-    mapDbTask(dbTask) {
-        return {
-            id: dbTask.id,
-            title: dbTask.title,
-            dueDate: dbTask.due_date,
-            subject: dbTask.subject,
-            completed: dbTask.completed,
-            createdAt: dbTask.created_at
-        };
-    }
-
-    // Subscribe to Supabase Realtime changes
-    setupRealtime() {
-        if (!isSupabaseConfigured || !supabase) return;
-
-        supabase
-            .channel('public:tasks')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'tasks' },
-                (payload) => {
-                    const eventType = payload.eventType; // 'INSERT', 'UPDATE', 'DELETE'
-                    
-                    if (eventType === 'INSERT') {
-                        const newTask = this.mapDbTask(payload.new);
-                        // ป้องกันข้อมูลซ้ำหากเครื่องตัวเองแอดไปก่อนแล้ว
-                        if (!this.tasks.some(t => t.id === newTask.id)) {
-                            this.tasks.push(newTask);
-                        }
-                    } else if (eventType === 'UPDATE') {
-                        const updatedTask = this.mapDbTask(payload.new);
-                        const idx = this.tasks.findIndex(t => t.id === updatedTask.id);
-                        if (idx !== -1) {
-                            this.tasks[idx] = updatedTask;
-                        }
-                    } else if (eventType === 'DELETE') {
-                        const deletedId = payload.old.id;
-                        this.tasks = this.tasks.filter(t => t.id !== deletedId);
-                    }
-                    
-                    this.render();
-                }
-            )
-            .subscribe();
+        // 3. ค่อยรันงานดึงวิชาและฟังก์ชัน Realtime จากคลาวด์ในเบื้องหลัง
+        if (isSupabaseConfigured && supabase) {
+            this.setupRealtime();
+            this.syncSubjectsFromCloud(); // ไม่ใส่ await เพื่อไม่ให้บล็อกการแสดงผลหลัก
+        }
     }
 
     // Initialize Theme
@@ -269,7 +242,7 @@ class MellowApp {
             if (isSupabaseConfigured) {
                 statusText.innerHTML = '<i class="fa-solid fa-cloud" style="color: var(--color-accent);"></i> เชื่อมต่อฐานข้อมูลคลาวด์ Supabase แล้ว';
             } else {
-                statusText.innerHTML = '<i class="fa-solid fa-database"></i> โหมดออฟไลน์ (Local Storage) • เปิดใช้คีย์ใน .env เพื่อเชื่อมต่อฐานข้อมูล';
+                statusText.innerHTML = '<i class="fa-solid fa-database"></i> โหมดออฟไลน์ (Local Storage) • ตั้งค่าไฟล์ .env เพื่อซิงค์ขึ้นคลาวด์';
             }
         }
     }
@@ -282,27 +255,6 @@ class MellowApp {
         const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
         const dd = String(tomorrow.getDate()).padStart(2, '0');
         this.taskDueDate.value = `${yyyy}-${mm}-${dd}`;
-    }
-
-    // Load subjects list from Supabase or default
-    async loadSubjects() {
-        if (isSupabaseConfigured && supabase) {
-            try {
-                const { data, error } = await supabase
-                    .from('subjects')
-                    .select('*')
-                    .order('name');
-                    
-                if (error) throw error;
-                this.subjects = data;
-            } catch (err) {
-                console.error("Error loading subjects from Supabase:", err);
-                this.loadDefaultSubjects();
-            }
-        } else {
-            this.loadDefaultSubjects();
-        }
-        this.renderSubjectDropdown();
     }
 
     // Default subjects array
@@ -318,12 +270,30 @@ class MellowApp {
         ];
     }
 
+    // Sync subjects list from Supabase
+    async syncSubjectsFromCloud() {
+        try {
+            const { data, error } = await supabase
+                .from('subjects')
+                .select('*')
+                .order('name');
+                
+            if (error) throw error;
+            if (data && data.length > 0) {
+                this.subjects = data;
+                this.renderSubjectDropdown();
+                this.render(); // รีเรนเดอร์อีกครั้งเพื่อให้ป้ายชื่อแสดงผลตามฐานข้อมูลคลาวด์
+            }
+        } catch (err) {
+            console.error("Mellow Tracker: Error syncing subjects from Supabase, using offline defaults:", err);
+        }
+    }
+
     // Populate dropdown selection
     renderSubjectDropdown() {
         if (!this.taskSubject) return;
         this.taskSubject.innerHTML = '';
         
-        // Add a placeholder to select
         this.subjects.forEach(sub => {
             const opt = document.createElement('option');
             opt.value = sub.id;
@@ -333,7 +303,7 @@ class MellowApp {
         });
     }
 
-    // Setup event listeners for forms, toggles, filter changes
+    // Setup event listeners
     setupEventListeners() {
         this.themeToggleBtn.addEventListener('click', () => this.toggleTheme());
         this.taskForm.addEventListener('submit', (e) => this.handleSubmit(e));
@@ -375,7 +345,14 @@ class MellowApp {
         try {
             this.tasks = await db.getAll();
         } catch (err) {
-            console.error("Error loading tasks:", err);
+            console.error("Mellow Tracker: Error loading tasks from database:", err);
+            
+            // กรณีคีย์เชื่อมต่อผิดพลาดและเรียกข้อมูลคลาวด์ไม่ได้ ให้กู้ข้อมูล local มาทำงานแทนไม่ให้บอร์ดว่างเปล่า
+            if (isSupabaseConfigured) {
+                console.log("Mellow Tracker: Database request failed. Falling back to local storage offline tasks...");
+                const localDb = new LocalStorageTaskRepository();
+                this.tasks = await localDb.getAll();
+            }
         }
         this.render();
     }
@@ -410,7 +387,13 @@ class MellowApp {
             this.render();
         } catch (err) {
             console.error("Error saving task:", err);
-            alert("เกิดข้อผิดพลาดในการบันทึกงาน กรุณาลองใหม่อีกครั้ง");
+            
+            // กรณีเขียนข้อมูลคลาวด์ล้มเหลว ให้บันทึกลง local storage แก้ขัดไปก่อนเพื่อความต่อเนื่อง
+            console.log("Saving task to offline storage fallback...");
+            const localDb = new LocalStorageTaskRepository();
+            const fallbackTask = await localDb.add(newTask);
+            this.tasks.push(fallbackTask);
+            this.render();
         }
     }
 
@@ -426,9 +409,14 @@ class MellowApp {
                 }, 200);
             } catch (err) {
                 console.error("Error updating status:", err);
-                // Rollback status if query fails
-                task.completed = !isCompleted;
-                this.render();
+                // ตรวจเช็คว่าอัพเดตผ่าน LocalStorage แก้ขัดได้หรือไม่
+                const localDb = new LocalStorageTaskRepository();
+                try {
+                    await localDb.update(id, { completed: isCompleted });
+                } catch(e) {}
+                setTimeout(() => {
+                    this.render();
+                }, 200);
             }
         }
     }
@@ -444,8 +432,13 @@ class MellowApp {
                 this.render();
             } catch (err) {
                 console.error("Error deleting task:", err);
-                taskItemElement.classList.remove('removing');
-                alert("เกิดข้อผิดพลาดในการลบงาน");
+                
+                // ลองลบใน local แก้ขัด
+                const localDb = new LocalStorageTaskRepository();
+                try { await localDb.delete(id); } catch(e) {}
+                
+                this.tasks = this.tasks.filter(t => t.id !== id);
+                this.render();
             }
         }, { once: true });
     }
@@ -483,13 +476,13 @@ class MellowApp {
         return `${day} ${thaiMonthsShort[monthIndex]} ${thaiYear}`;
     }
 
-    // Translate subject ID to Thai label dynamically
+    // Translate subject ID to Thai label
     getSubjectLabel(subjectId) {
         const found = this.subjects.find(s => s.id === subjectId);
         return found ? `${found.name} ${found.emoji}` : 'ทั่วไป ☕';
     }
 
-    // Filter tasks based on current filter state
+    // Filter tasks
     getFilteredTasks() {
         return this.tasks.filter(task => {
             if (this.currentFilter === 'active') return !task.completed;
@@ -498,7 +491,7 @@ class MellowApp {
         });
     }
 
-    // Sort tasks based on current sort criteria
+    // Sort tasks
     getSortedTasks(filteredTasks) {
         return [...filteredTasks].sort((a, b) => {
             if (this.currentSort === 'dueDate-asc') {
@@ -519,7 +512,7 @@ class MellowApp {
         });
     }
 
-    // Update progress bar UI card
+    // Update progress bar UI
     updateProgressUI() {
         const total = this.tasks.length;
         const completed = this.tasks.filter(t => t.completed).length;
@@ -552,7 +545,7 @@ class MellowApp {
         }
     }
 
-    // Render list and progress tracker
+    // Render list
     render() {
         this.updateProgressUI();
 
@@ -605,6 +598,40 @@ class MellowApp {
                 this.taskList.appendChild(taskLi);
             });
         }
+    }
+
+    // Subscribe to Supabase Realtime changes
+    setupRealtime() {
+        if (!isSupabaseConfigured || !supabase) return;
+
+        supabase
+            .channel('public:tasks')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'tasks' },
+                (payload) => {
+                    const eventType = payload.eventType;
+                    
+                    if (eventType === 'INSERT') {
+                        const newTask = this.mapDbTask(payload.new);
+                        if (!this.tasks.some(t => t.id === newTask.id)) {
+                            this.tasks.push(newTask);
+                        }
+                    } else if (eventType === 'UPDATE') {
+                        const updatedTask = this.mapDbTask(payload.new);
+                        const idx = this.tasks.findIndex(t => t.id === updatedTask.id);
+                        if (idx !== -1) {
+                            this.tasks[idx] = updatedTask;
+                        }
+                    } else if (eventType === 'DELETE') {
+                        const deletedId = payload.old.id;
+                        this.tasks = this.tasks.filter(t => t.id !== deletedId);
+                    }
+                    
+                    this.render();
+                }
+            )
+            .subscribe();
     }
 
     escapeHTML(str) {
