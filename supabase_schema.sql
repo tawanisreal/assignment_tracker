@@ -45,3 +45,6 @@ alter table tasks enable row level security;
 
 -- Create policies for public access
 create policy "Allow public access on tasks" on tasks for all using (true) with check (true);
+
+-- 3. Enable Realtime for tasks table (เปิดใช้งานระบบ Realtime Sync)
+alter publication supabase_realtime add table tasks;

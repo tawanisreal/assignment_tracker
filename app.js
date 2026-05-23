@@ -193,6 +193,54 @@ class MellowApp {
         this.setupEventListeners();
         await this.loadSubjects(); // โหลดวิชาก่อนโหลดงาน
         await this.loadTasks();
+        this.setupRealtime(); // เปิดระบบฟังการอัปเดตเรียลไทม์
+    }
+
+    // Map DB snake_case columns to JS camelCase properties
+    mapDbTask(dbTask) {
+        return {
+            id: dbTask.id,
+            title: dbTask.title,
+            dueDate: dbTask.due_date,
+            subject: dbTask.subject,
+            completed: dbTask.completed,
+            createdAt: dbTask.created_at
+        };
+    }
+
+    // Subscribe to Supabase Realtime changes
+    setupRealtime() {
+        if (!isSupabaseConfigured || !supabase) return;
+
+        supabase
+            .channel('public:tasks')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'tasks' },
+                (payload) => {
+                    const eventType = payload.eventType; // 'INSERT', 'UPDATE', 'DELETE'
+                    
+                    if (eventType === 'INSERT') {
+                        const newTask = this.mapDbTask(payload.new);
+                        // ป้องกันข้อมูลซ้ำหากเครื่องตัวเองแอดไปก่อนแล้ว
+                        if (!this.tasks.some(t => t.id === newTask.id)) {
+                            this.tasks.push(newTask);
+                        }
+                    } else if (eventType === 'UPDATE') {
+                        const updatedTask = this.mapDbTask(payload.new);
+                        const idx = this.tasks.findIndex(t => t.id === updatedTask.id);
+                        if (idx !== -1) {
+                            this.tasks[idx] = updatedTask;
+                        }
+                    } else if (eventType === 'DELETE') {
+                        const deletedId = payload.old.id;
+                        this.tasks = this.tasks.filter(t => t.id !== deletedId);
+                    }
+                    
+                    this.render();
+                }
+            )
+            .subscribe();
     }
 
     // Initialize Theme
